@@ -198,7 +198,7 @@ def convergence_point(G, allow_islands):
 
 # Definetly should use classes for this instead 
 def binomial_sim(ind_var, allow_islands, iterations, data_points, ind_var_data):
-    if ind_var == "order":
+    if ind_var == "probability":
         n = int(input("Enter number of nodes: "))
         for d in range(data_points):
             print (d)
@@ -223,8 +223,10 @@ def binomial_sim(ind_var, allow_islands, iterations, data_points, ind_var_data):
             iterations.append(convergence_point(G,allow_islands))
             ind_var_data.append(rn)
 
+#These functions all essentially do the same thing, this is very bad code and needs to be refactored.
+
 def kreg_sim(ind_var, allow_islands, iterations, data_points, ind_var_data):
-        if ind_var == "order":
+        if ind_var == "degree":
             n = int(input("Enter number of nodes: "))
             for d in range(data_points):
                 print (d)
@@ -255,7 +257,7 @@ def kreg_sim(ind_var, allow_islands, iterations, data_points, ind_var_data):
 def cyclic_sim(ind_var, allow_islands, iterations, data_points, ind_var_data):
     for d in range(data_points):
         print (d)
-        rn = np.random.randint(1,200)
+        rn = np.random.randint(1,100)
         G = nx.cycle_graph(rn)
         set_rand_node_values(G)
         if allow_islands == False and nx.is_connected(G) == False:
@@ -292,7 +294,7 @@ def run_sim(graph_type, ind_var, allow_islands, data_points):
         iterations, 
         ind_var_data, 
         title=f"{graph_type.capitalize()} Simulation Results",
-        xlabel="Independent Variable Data", 
+        xlabel=ind_var, 
         ylabel="Iterations"
     )
 
