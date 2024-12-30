@@ -88,7 +88,7 @@ class Simulation:
         # Try to rewrite this to reduce code duplication. 
         else:
             while not self.has_converged_islands():
-                self.update_weighted_values(self.G)
+                self.update_weighted_values()
                 i+=1
                 for node in self.G.nodes:
                     node_values_over_time[node].append(self.G.nodes[node]['value'])
@@ -148,4 +148,4 @@ class Binomial(Simulation):
         
 #Cyclic(10)
 #Kregular(20,3)
-#Binomial(20,.2)        
+Binomial(10,.2)        

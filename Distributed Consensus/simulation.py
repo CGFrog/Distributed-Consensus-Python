@@ -198,9 +198,10 @@ class Binomial(Simulation):
 
 #Cyclic("order",100)
 
-Kregular("order",10,False,3)
+Kregular("order",100,False,3)
 #Kregular("degree",10,True,20) # Does not always display all values
 
 #Very sensitive to convergence error, takes extremely long times to converge to an error of .001 when islands are not allowed
+
 #Binomial("probability", 100, False, 10) 
 #Binomial("order", 100, False,.5)         
