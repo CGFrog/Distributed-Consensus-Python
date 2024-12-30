@@ -5,14 +5,6 @@ from numpy.random import rand
 """
 This code was purely for testing, all of it has been refactored in simulation.py and single_graph_sim.py.
 
-
-
-
-
-
-
-
-
 """
 
 
