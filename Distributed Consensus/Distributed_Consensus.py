@@ -3,13 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.random import rand
 """
-
 This code was purely for testing, all of it has been refactored in simulation.py and single_graph_sim.py.
-I keep it here to show my process of development to those who may be interested.
-
-
-
-
 """
 
 
