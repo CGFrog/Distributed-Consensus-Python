@@ -38,16 +38,13 @@ class Simulation:
     def convergence_point(self, G, allow_islands):
         iterations = 0
         g_avg = self.global_average(G)
-        if not allow_islands:
-            while not self.has_converged(G, g_avg):
-                iterations += 1
-                self.update_weighted_values(G)
-    
-        elif allow_islands:
-            while not self.has_converged_islands(G):
-                iterations += 1
-                self.update_weighted_values(G)
+        convergence_check = self.has_converged if not allow_islands else self.has_converged_islands
+        while not convergence_check(G, g_avg if not allow_islands else None):
+            iterations += 1
+            self.update_weighted_values(G)
+
         return iterations
+
 
     def has_converged_islands(self, G):
         connected_components = nx.connected_components(G)
@@ -115,7 +112,7 @@ class Kregular(Simulation):
         d=0
         while len(self.iterations) < self.data_points:
             print(d)
-            rk = np.random.randint(1, n)
+            rk = np.random.randint(1, n*.85) #.85 is in place so that we dont get any values that take extreme amounts of time for graph generation
             G = nx.random_regular_graph(rk, n)
             self.set_rand_node_values(G)
             if not self.allow_islands and not nx.is_connected(G):
@@ -198,8 +195,8 @@ class Binomial(Simulation):
 
 #Cyclic("order",100)
 
-Kregular("order",100,False,3)
-#Kregular("degree",10,True,20) # Does not always display all values
+#Kregular("order",1000,False,3)
+Kregular("degree",100,False,100) # Does not always display all values
 
 #Very sensitive to convergence error, takes extremely long times to converge to an error of .001 when islands are not allowed
 

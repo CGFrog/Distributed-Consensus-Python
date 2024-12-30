@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>afd33d22-a8a6-4e93-b5e4-38adc056953d</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>single_graph_sim.py</StartupFile>
+    <StartupFile>simulation.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>

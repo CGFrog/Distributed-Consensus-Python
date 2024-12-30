@@ -7,7 +7,9 @@ class Simulation:
     def __init__(self,order):
         self.order = order
         self.G = nx.empty_graph()
-        self.CONSENSUS_ERROR = 0.001
+        self.CONSENSUS_ERROR = 0.01
+        self.AGENT_WEIGHT = 1
+        self.NEIGHBOR_WEIGHT = 1
         
     def set_rand_node_values(self):
         initial_values = np.random.rand(len(self.G.nodes))
@@ -78,28 +80,19 @@ class Simulation:
     
         i = 0
     
-        if nx.nx.is_connected(self.G):
-            while not self.has_converged():
-                self.update_weighted_values()
-                i+=1
-                for node in self.G.nodes:
-                    node_values_over_time[node].append(self.G.nodes[node]['value'])
-                global_averages.append(self.calculate_global_average())
-        # Try to rewrite this to reduce code duplication. 
-        else:
-            while not self.has_converged_islands():
-                self.update_weighted_values()
-                i+=1
-                for node in self.G.nodes:
-                    node_values_over_time[node].append(self.G.nodes[node]['value'])
-                global_averages.append(self.calculate_global_average())
-
-
+        # Just learned that python lets you use functions as variables. That is awesome.
+        convergence_check = self.has_converged if nx.is_connected(self.G) else self.has_converged_islands
+        while not convergence_check():
+            self.update_weighted_values()
+            i += 1
+            for node in self.G.nodes:
+                node_values_over_time[node].append(self.G.nodes[node]['value'])
+            global_averages.append(self.calculate_global_average())
         return node_values_over_time, global_averages
 
     def update_weighted_values(self):
-        w_neighbor = 1
-        w_agent = 1
+        w_neighbor = self.NEIGHBOR_WEIGHT
+        w_agent = self.AGENT_WEIGHT
         new_values = {}
         #Arithmetic Weighted average = sum(w_ix_i)/sum(w_i)
         for node in self.G.nodes:
@@ -113,6 +106,7 @@ class Simulation:
             
     def run_sim(self):
         self.set_rand_node_values()
+
         self.global_average = self.calculate_global_average()
         print(f"Initial global average: {self.global_average:.4f}")
     
@@ -147,5 +141,5 @@ class Binomial(Simulation):
         self.run_sim()
         
 #Cyclic(10)
-#Kregular(20,3)
-Binomial(10,.2)        
+Kregular(10,2)
+#Binomial(20,.1)        
