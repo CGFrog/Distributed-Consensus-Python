@@ -242,7 +242,7 @@ def kreg_sim(ind_var, allow_islands, iterations, data_points, ind_var_data):
             k = int(input("Enter degree of nodes for: "))
             for d in range(data_points):
                 print (d)
-                rk = np.random.randint(k,k+100)
+                rk = np.random.randint(k,k+1000)
                 if k*rk%2 == 1:
                     d-=1
                     continue
@@ -305,10 +305,25 @@ def init_sim():
     allow_islands = have_islands()
     data_points = eval(input("How many data points to evaluate?"))
     
-
-
     run_sim(graph_type, ind_var, allow_islands, data_points)
     
+
+class simulation:
+    def __init__(self, graph_type, ind_var, allow_islands,data_points):
+        self.graph_type = graph_type
+        self.ind_var = ind_var
+        self.allow_islands = allow_islands
+        self.data_points = data_points
+        
+"""
+What we are trying to accomplish:
+    instead of many if statements for each possible independent variable choice,
+    I want a single function that runs the 
+
+
+
+
+"""
 
 
 
