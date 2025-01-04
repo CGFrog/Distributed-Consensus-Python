@@ -1,20 +1,55 @@
+from math import ceil
+import random
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.random import rand
 
+"""
+
+Part 2: Byzantine Agents
+
+    Our goal is to introduce byzantine agents into the network, these agents could act in various ways:
+        * Calculating the optimal wrong value and distributing it to other agents.
+        * Sending an arbitrary value to all of its neighbor.
+        * Sending an arbitrary value to different neighbors.
+        * Never change value.
+        * Send a delayed value.
+        * ...
+    
+    TODO:    
+        * Select pecentage of nodes that are byzantine agents
+        * Randomly set various nodes in the graph as byzantine agents according to percentage
+            1. Get total amount of byzantine agents needed.
+            2. Generate a set of random numbers that range from 0 to n-1 where n is the amount of nodes in the network. Size of the set must be the size of n*percentage.
+            3. Set each node of those indicies to be a byzantine agent
+            4. When updating the values of the nodes we check if the agent is byzantine and we run a seperate function to determine its value.
+            
+"""
+
 class Simulation:
-    def __init__(self,order):
+    def __init__(self,order, percent_byzantine):
         self.order = order
         self.G = nx.empty_graph()
         self.CONSENSUS_ERROR = 0.01
         self.AGENT_WEIGHT = 1
         self.NEIGHBOR_WEIGHT = 1
+        self.percent_byzantine = percent_byzantine
         
     def set_rand_node_values(self):
         initial_values = np.random.rand(len(self.G.nodes))
         node_mapping = {node: i for i, node in enumerate(self.G.nodes)}
         nx.set_node_attributes(self.G, {node: {'value': initial_values[node_mapping[node]]} for node in self.G.nodes})
+        nx.set_node_attributes(self.G, {node: {'byzantine': False} for node in self.G.nodes})
+        
+
+    def set_byzantine_agents(self):
+        n = self.G.order()
+        num_byzantine = int(np.floor(n * self.percent_byzantine))
+        byzantine_nodes = np.random.choice(list(self.G.nodes), size=num_byzantine, replace=False)
+        for node in byzantine_nodes:
+            self.G.nodes[node]['byzantine'] = True
+            
 
     def calculate_global_average(self):
         values = [self.G.nodes[n]['value'] for n in self.G.nodes]
@@ -42,20 +77,27 @@ class Simulation:
         plt.show()
 
 
-    def plot_values_and_global_average(self,node_values_over_time, global_averages):
+    def plot_values_and_global_average(self, node_values_over_time, global_averages):
         plt.figure(figsize=(12, 8))
-    
+
         for node, values in node_values_over_time.items():
-            plt.plot(values, label=f'Node {node}', linestyle='--', alpha=0.7)
+            is_byzantine = self.G.nodes[node]['byzantine']  # Check if the node is Byzantine
+            label = f"Node {node} ({'Byzantine' if is_byzantine else 'Normal'})"
+            linestyle = '--' if is_byzantine else '-'
+            alpha = 0.9 if is_byzantine else 0.7
+            color = 'purple' if is_byzantine else None  # Use a distinct color for Byzantine nodes
+            plt.plot(values, label=label, linestyle=linestyle, alpha=alpha, color=color)
 
         plt.plot(global_averages, label='Global Average', color='red', linewidth=2, marker='o')
-    
+
         plt.xlabel('Iteration')
         plt.ylabel('Value')
-        plt.title('Node Values/Global Average')
-        plt.legend()
+        plt.title('Node Values and Global Average')
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Legend")
+        plt.tight_layout()  # Adjust layout to fit everything nicely
         plt.grid(True)
         plt.show()
+
 
     def has_converged_islands(self):
         connected_components = nx.connected_components(self.G)
@@ -102,11 +144,15 @@ class Simulation:
             new_values[node] = total/((len(values) * w_neighbor) + w_agent) 
         #After all new values have been calculated replace each agents current value with the new average.
         for node, value in new_values.items():
-            self.G.nodes[node]['value'] = value
+            if self.G.nodes[node]['byzantine']:
+                self.G.nodes[node]['value'] = 0  # Replace this with a function to handle Byzantine behavior
+            else:
+                self.G.nodes[node]['value'] = value
+
             
     def run_sim(self):
         self.set_rand_node_values()
-
+        self.set_byzantine_agents()
         self.global_average = self.calculate_global_average()
         print(f"Initial global average: {self.global_average:.4f}")
     
@@ -120,26 +166,26 @@ class Simulation:
         print("Consensus process complete!")
     
 class Cyclic(Simulation):
-    def __init__(self,order):
-        super().__init__(order)
+    def __init__(self,order, percent_byzantine):
+        super().__init__(order, percent_byzantine)
         self.G=nx.cycle_graph(order)
         self.run_sim()
         
 
 class Kregular(Simulation):
-    def __init__(self,order,degree):
-        super().__init__(order)
+    def __init__(self,order, percent_byzantine, degree):
+        super().__init__(order, percent_byzantine)
         self.degree=degree
         self.G=nx.random_regular_graph(degree,order)
         self.run_sim()
         
 class Binomial(Simulation):
-    def __init__(self,order,probability):
-        super().__init__(order)
+    def __init__(self,order,percent_byzantine, probability):
+        super().__init__(order, percent_byzantine)
         self.probability = probability
         self.G=nx.erdos_renyi_graph(order,probability)
         self.run_sim()
         
 #Cyclic(10)
-Kregular(10,2)
-#Binomial(20,.1)        
+#Kregular(20,0.05,3)
+Binomial(20,.1,.1)        
