@@ -28,6 +28,7 @@ Part 2: Byzantine Agents
 """
 
 class Simulation:
+    
     def __init__(self,order, percent_byzantine):
         self.order = order
         self.G = nx.empty_graph()
@@ -63,16 +64,23 @@ class Simulation:
         return True
     
     def display_final_graph(self):
-        values = [self.G.nodes[node]['value'] for node in self.G.nodes]
+        values = []
+        byzantines = []
+        for node in self.G.nodes:
+            values.append(self.G.nodes[node]['value'])
+            if self.G.nodes[node]['byzantine'] is True:    
+                byzantines.append('red')
+            else:
+                byzantines.append('blue')
+           
         pos = nx.spring_layout(self.G)
-    
+
         plt.figure(figsize=(10, 7))
-        nx.draw(self.G, pos, with_labels=False, node_color=values, cmap=plt.cm.viridis, node_size=700)
+        nx.draw(self.G, pos, with_labels=False, node_color=byzantines, cmap=plt.cm.viridis, node_size=700)
+        
+        labels = {node: f"{node}\n{self.G.nodes[node]['value']:.2f}\n{self.G.nodes[node]['byzantine']}" for node in self.G.nodes}
+        nx.draw_networkx_labels(self.G, pos, labels=labels, font_size=8, font_color="white")
     
-        labels = {node: f"{node}\n{self.G.nodes[node]['value']:.2f}" for node in self.G.nodes}
-        nx.draw_networkx_labels(self.G, pos, labels=labels, font_size=10, font_color="white")
-    
-        plt.colorbar(plt.cm.ScalarMappable(cmap=plt.cm.viridis), label="Node Values")
         plt.title("Graph")
         plt.show()
 
@@ -87,7 +95,7 @@ class Simulation:
             alpha = 0.9 if is_byzantine else 0.7
             color = 'purple' if is_byzantine else None  # Use a distinct color for Byzantine nodes
             plt.plot(values, label=label, linestyle=linestyle, alpha=alpha, color=color)
-
+        
         plt.plot(global_averages, label='Global Average', color='red', linewidth=2, marker='o')
 
         plt.xlabel('Iteration')
@@ -187,5 +195,5 @@ class Binomial(Simulation):
         self.run_sim()
         
 #Cyclic(10)
-#Kregular(20,0.05,3)
-Binomial(20,.1,.1)        
+Kregular(20,0.1,3)
+#Binomial(20,.1,.1)
