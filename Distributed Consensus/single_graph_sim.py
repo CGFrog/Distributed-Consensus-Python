@@ -5,43 +5,56 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.random import rand
 
-"""
-
-Part 2: Byzantine Agents
-
-    Our goal is to introduce byzantine agents into the network, these agents could act in various ways:
-        * Calculating the optimal wrong value and distributing it to other agents.
-        * Sending an arbitrary value to all of its neighbor.
-        * Sending an arbitrary value to different neighbors.
-        * Never change value.
-        * Send a delayed value.
-        * ...
+class Agent:
+    def __init__(self, value):
+        self.value = value
+        self.shared_value = value
+        self.self_weight = 1
+        self.neighbor_weight = 1
+        
+    def calculate_average(self, neighbors):
+        return (self.neighbor_weight * sum(neighbors) + self.value * self.self_weight)/(len(neighbors)*self.neighbor_weight+self.self_weight)
     
-    TODO:    
-        * Select pecentage of nodes that are byzantine agents
-        * Randomly set various nodes in the graph as byzantine agents according to percentage
-            1. Get total amount of byzantine agents needed.
-            2. Generate a set of random numbers that range from 0 to n-1 where n is the amount of nodes in the network. Size of the set must be the size of n*percentage.
-            3. Set each node of those indicies to be a byzantine agent
-            4. When updating the values of the nodes we check if the agent is byzantine and we run a seperate function to determine its value.
-            
-"""
+    def get_shared_value(self):
+        return self.shared_value
+    
+    def shared_to_value(self):
+        print(self.value)
+        self.sharded_value = self.value
+
+class Byzantine(Agent):
+    def __init__(self, value):
+        super().__init__(value)
+        
+    def get_shared_value(self):
+        return 0
+
+
 
 class Simulation:
     
     def __init__(self,order, percent_byzantine):
         self.order = order
         self.G = nx.empty_graph()
-        self.CONSENSUS_ERROR = 0.01
+        self.CONSENSUS_ERROR = .2
         self.AGENT_WEIGHT = 1
         self.NEIGHBOR_WEIGHT = 1
         self.percent_byzantine = percent_byzantine
         
     def set_rand_node_values(self):
         initial_values = np.random.rand(len(self.G.nodes))
-        node_mapping = {node: i for i, node in enumerate(self.G.nodes)}
-        nx.set_node_attributes(self.G, {node: {'value': initial_values[node_mapping[node]]} for node in self.G.nodes})
-        nx.set_node_attributes(self.G, {node: {'byzantine': False} for node in self.G.nodes})
+        # Map nodes to their index
+        node_mapping = {}
+        i = 0
+        for node in self.G.nodes:
+            node_mapping[node] = i
+            i += 1
+        for node in self.G.nodes:
+            nx.set_node_attributes(self.G, {node: {'agent': Agent([node_mapping[node]])}})
+        # Set the 'value' attribute for each node's 'agent'
+        for node in self.G.nodes:
+            self.G.nodes[node]['agent'].value = initial_values[node]
+
         
 
     def set_byzantine_agents(self):
@@ -49,17 +62,21 @@ class Simulation:
         num_byzantine = int(np.floor(n * self.percent_byzantine))
         byzantine_nodes = np.random.choice(list(self.G.nodes), size=num_byzantine, replace=False)
         for node in byzantine_nodes:
-            self.G.nodes[node]['byzantine'] = True
-            
+            val = self.G.nodes[node]['agent'].value
+            self.G.nodes[node]['agent'] = Byzantine(val)
+    
+            """
+            Currently the byzantine agents automatically set the value to 0. T
+            """
 
     def calculate_global_average(self):
-        values = [self.G.nodes[n]['value'] for n in self.G.nodes]
+        values = [self.G.nodes[n]['agent'].value for n in self.G.nodes]
         return np.mean(values)
 
     def has_converged(self):
         gbl_avg = self.calculate_global_average()
         for node in self.G.nodes:
-            if abs(self.G.nodes[node]['value'] - gbl_avg) > self.CONSENSUS_ERROR:
+            if abs(self.G.nodes[node]['agent'].value - gbl_avg) > self.CONSENSUS_ERROR:
                 return False
         return True
     
@@ -67,8 +84,8 @@ class Simulation:
         values = []
         byzantines = []
         for node in self.G.nodes:
-            values.append(self.G.nodes[node]['value'])
-            if self.G.nodes[node]['byzantine'] is True:    
+            values.append(self.G.nodes[node]['agent'].value)
+            if isinstance(self.G.nodes[node]['agent'], Byzantine):    
                 byzantines.append('red')
             else:
                 byzantines.append('blue')
@@ -78,7 +95,7 @@ class Simulation:
         plt.figure(figsize=(10, 7))
         nx.draw(self.G, pos, with_labels=False, node_color=byzantines, cmap=plt.cm.viridis, node_size=700)
         
-        labels = {node: f"{node}\n{self.G.nodes[node]['value']:.2f}\n{self.G.nodes[node]['byzantine']}" for node in self.G.nodes}
+        labels = {node: f"{node}\n{self.G.nodes[node]['agent'].value:.2f}\n{isinstance(self.G.nodes[node]['agent'],Byzantine)}" for node in self.G.nodes}
         nx.draw_networkx_labels(self.G, pos, labels=labels, font_size=8, font_color="white")
     
         plt.title("Graph")
@@ -89,7 +106,7 @@ class Simulation:
         plt.figure(figsize=(12, 8))
 
         for node, values in node_values_over_time.items():
-            is_byzantine = self.G.nodes[node]['byzantine']  # Check if the node is Byzantine
+            is_byzantine = isinstance(self.G.nodes[node]['agent'], Byzantine)  # Check if the node is Byzantine
             label = f"Node {node} ({'Byzantine' if is_byzantine else 'Normal'})"
             linestyle = '--' if is_byzantine else '-'
             alpha = 0.9 if is_byzantine else 0.7
@@ -112,10 +129,10 @@ class Simulation:
     
         for component in connected_components:
             nodes_in_component = list(component)
-            local_average = sum(self.G.nodes[node]['value'] for node in nodes_in_component) / len(nodes_in_component)
+            local_average = sum(self.G.nodes[node]['agent'].value for node in nodes_in_component) / len(nodes_in_component)
         
             for node in nodes_in_component:
-                if abs(self.G.nodes[node]['value'] - local_average) > self.CONSENSUS_ERROR:
+                if abs(self.G.nodes[node]['agent'].value - local_average) > self.CONSENSUS_ERROR:
                     return False
     
         return True
@@ -125,7 +142,7 @@ class Simulation:
         global_averages = []
     
         for node in self.G.nodes:
-            node_values_over_time[node].append(self.G.nodes[node]['value'])
+            node_values_over_time[node].append(self.G.nodes[node]['agent'].value)
         global_averages.append(self.calculate_global_average())
     
         i = 0
@@ -136,28 +153,20 @@ class Simulation:
             self.update_weighted_values()
             i += 1
             for node in self.G.nodes:
-                node_values_over_time[node].append(self.G.nodes[node]['value'])
+                node_values_over_time[node].append(self.G.nodes[node]['agent'].value)
             global_averages.append(self.calculate_global_average())
         return node_values_over_time, global_averages
 
     def update_weighted_values(self):
         w_neighbor = self.NEIGHBOR_WEIGHT
         w_agent = self.AGENT_WEIGHT
-        new_values = {}
         #Arithmetic Weighted average = sum(w_ix_i)/sum(w_i)
         for node in self.G.nodes:
-            neighbors = list(self.G.neighbors(node))
-            values = [self.G.nodes[n]['value'] for n in neighbors]
-            total = w_neighbor*sum(values) + (w_agent * self.G.nodes[node]['value'])
-            new_values[node] = total/((len(values) * w_neighbor) + w_agent) 
-        #After all new values have been calculated replace each agents current value with the new average.
-        for node, value in new_values.items():
-            if self.G.nodes[node]['byzantine']:
-                self.G.nodes[node]['value'] = 0  # Replace this with a function to handle Byzantine behavior
-            else:
-                self.G.nodes[node]['value'] = value
+            self.G.nodes[node]['agent'].value = self.G.nodes[node]['agent'].calculate_average(list(self.G.neighbors(node)))
+        for node in self.G.nodes:
+            self.G.nodes[node]['agent'].shared_to_value()
+                
 
-            
     def run_sim(self):
         self.set_rand_node_values()
         self.set_byzantine_agents()
