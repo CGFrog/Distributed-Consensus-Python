@@ -4,7 +4,13 @@ import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.random import rand
+"""
+Goals for this week:
 
+    Implement Trimmed Average
+    Implement Byzantines in multi-graph simulations
+    Read through "Matrix Representation of Iterative Approximate Byzantine Consensus in Directed Graphs"
+"""
 class Agent:
     def __init__(self, value):
         self.value = value
