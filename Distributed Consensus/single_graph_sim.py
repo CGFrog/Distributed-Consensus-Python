@@ -25,11 +25,9 @@ class Agent:
 class Byzantine(Agent):
     def __init__(self, value):
         super().__init__(value)
-        
     # This function determines what value the byzantine agent sends.
     def get_shared_value(self):
         return np.random.rand()
-    
 
 class Simulation:
     def __init__(self,order, percent_byzantine):
@@ -86,14 +84,12 @@ class Simulation:
             if isinstance(self.G.nodes[node]['agent'], Byzantine):    
                 byzantines.append('red')
             else:
-                byzantines.append('blue')
-           
+                byzantines.append('blue')   
         pos = nx.spring_layout(self.G)
         plt.figure(figsize=(10, 7))
         nx.draw(self.G, pos, with_labels=False, node_color=byzantines, cmap=plt.cm.viridis, node_size=700)
         labels = {node: f"{node}\n{self.G.nodes[node]['agent'].value:.2f}\n{isinstance(self.G.nodes[node]['agent'],Byzantine)}" for node in self.G.nodes}
         nx.draw_networkx_labels(self.G, pos, labels=labels, font_size=8, font_color="white")
-
         plt.title("Graph")
         plt.show()
 
@@ -110,7 +106,6 @@ class Simulation:
         
         plt.plot(global_averages, label='Global Average', color='red', linewidth=2, marker='o')
         plt.plot(agent_averages, label='Agent Average', color='blue', linewidth=2, marker='o')
-        
         plt.xlabel('Iteration')
         plt.ylabel('Value')
         plt.title('Node Values and Global Average')
@@ -138,7 +133,7 @@ class Simulation:
         global_averages.append(self.calculate_global_average())
         agent_averages.append(self.calculate_nonbyzantine_average())
         i = 0
-    
+        
         # Just learned that python lets you use functions as variables. That is awesome.
         convergence_check = self.has_converged if nx.is_connected(self.G) else self.has_converged_islands
         while not convergence_check():
@@ -162,7 +157,6 @@ class Simulation:
             self.G.nodes[node]['agent'].value = self.G.nodes[node]['agent'].calculate_average(neighbors)
         for node in self.G.nodes:
             self.G.nodes[node]['agent'].shared_to_value()
-                
 
     def run_sim(self):
         self.set_rand_node_values()
@@ -171,20 +165,17 @@ class Simulation:
         print(f"Initial global average: {self.global_average:.4f}")
     
         node_values_over_time, global_averages, agent_averages = self.track_values_and_averages()
-
         final_average = self.calculate_global_average()
         print(f"Final global average: {final_average:.4f}")
-
         self.plot_values_and_global_average(node_values_over_time, global_averages, agent_averages)
         self.display_final_graph()
         print("Consensus process complete!")
-    
+
 class Cyclic(Simulation):
     def __init__(self,order, percent_byzantine):
         super().__init__(order, percent_byzantine)
         self.G=nx.cycle_graph(order)
         self.run_sim()
-        
 
 class Kregular(Simulation):
     def __init__(self,order, percent_byzantine, degree):
@@ -192,14 +183,14 @@ class Kregular(Simulation):
         self.degree=degree
         self.G=nx.random_regular_graph(degree,order)
         self.run_sim()
-        
+
 class Binomial(Simulation):
     def __init__(self,order,percent_byzantine, probability):
         super().__init__(order, percent_byzantine)
         self.probability = probability
         self.G=nx.erdos_renyi_graph(order,probability)
         self.run_sim()
-        
+
+#Binomial(40,.1,.05)
 #Cyclic(50,.1)
-#Kregular(100,0.01,3)
-Binomial(40,.1,.05)
+Kregular(20,.1,3)
