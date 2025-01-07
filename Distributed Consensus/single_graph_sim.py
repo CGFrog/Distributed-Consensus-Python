@@ -6,10 +6,15 @@ import matplotlib.pyplot as plt
 from numpy.random import rand
 """
 Goals for this week:
-
     Implement Trimmed Average
-    Implement Byzantines in multi-graph simulations
+    * Implement Byzantines in multi-graph simulations
     Read through "Matrix Representation of Iterative Approximate Byzantine Consensus in Directed Graphs"
+    
+    Try to come up with different algorithms for the byzantine agent to follow.
+    
+    NOTE: A lot of these functions can be private or protected, take some time this week to adjust that accordingly.
+    
+    
 """
 class Agent:
     def __init__(self, value):
