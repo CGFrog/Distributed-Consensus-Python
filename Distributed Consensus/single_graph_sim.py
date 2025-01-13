@@ -16,11 +16,14 @@ class Agent:
 
 
     """
-    ALTERNATIVE METHOD OF DOING THIS ALGORITHM
+    ALTERNATIVE (BETTER) METHOD OF DOING THIS ALGORITHM - IMPLEMENT THIS VERSION NEXT
 
-        say we have n agents in total, we create an nxn stochastic matrix such that
-    
-                   a1 a2 a3 ... an
+        Say we have n agents in total, we create an nxn stochastic matrix such that
+        each entry represents ai's weight of aj. (ith row jth column)
+        
+        Example:
+        
+                     a1 a2 a3 ... an
                 a1 [.2 .3 .1 ... .2 ]
                 a2 [.5  0 .2 ... .1 ]
                 a3 [.4 .2  0 ... .3 ]   
@@ -28,24 +31,46 @@ class Agent:
                 .  [................]
                 an [.1 .2  0 ... .2 ]
 
-        each entry represents ai's weight of aj.
+
         We then create a vector of all the "states" or values that each agent is holding
         and we perform matrix multiplication on the vector to get the next iteration of our system.
-        we do this.
-                        Weights         current state    next state
-                   a1 a2 a3 ... an
-                a1 [.2 .3 .1 ... .2 ]       [a1]          [a1]
-                a2 [.5  0 .2 ... .1 ]       [a2]          [a2]
-     agents     a3 [.4 .2  0 ... .3 ]       [a3]          [a3]
-                .  [................]    x  [ .]   =      [ .]
-                .  [................]       [ .]          [ .]
-                an [.1 .2  0 ... .2 ]       [an]          [an]
+        we do this. ai^k means the ith agent at the kth state.
+        
+                         Weights           Current State       Next State
+                     w1 w2 w3 ... wn
+                a1 [ .2 .3 .1 ... .2 ]         [a1^1]            [a1^2]
+                a2 [ .5  0 .2 ... .1 ]         [a2^1]            [a2^2]
+     Agents     a3 [ .4 .2  0 ... .3 ]         [a3^1]            [a3^2]
+                .  [ ................]    x    [ .^1]     =      [ .^2]
+                .  [ ................]         [ .^1]            [ .^2]
+                an [ .1 .2  0 ... .2 ]         [an^1]            [an^2]
+                
+       GENERATING A RANDOM STOCHASTIC MATRIX
+       ------------------------------------
+       For each agent in our graph we will genrate random weights using the rand function
+       we will then normalize them st their sum = 1
+       we return this list as a dictionary with each key being the index of the agent in the graph and the value being the stochastic weight.
+       
+       We create a matrix in simulation class and append the weights of agent ai to the corresponding columns of the other agents weights.
+       
+       ------------------------------------         
+        MATRIX MULTIPLICATION
+        ------------------------------------
+            # Define two matrices
+            A = np.array([[1, 2], [3, 4]])
+            B = np.array([[5, 6], [7, 8]])
+
+            # Perform matrix multiplication
+            result = np.matmul(A, B)
+        ------------------------------------
+
     """
 
 
 
 
     def check_validity(self, neighbors):
+        
         """  
         IDEA:
             Each node keeps a record of recieved data
@@ -60,9 +85,8 @@ class Agent:
             a1 [0 1 0 ]
             a2 [1 0 0 ]
             a3 [1 0 0 ]         
+              
         """
-        
-
     
     # Weighted Average.
     def calculate_average(self, neighbors):
