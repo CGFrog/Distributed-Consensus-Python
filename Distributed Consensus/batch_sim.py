@@ -12,6 +12,7 @@ class Batch_Simulation():
         self.order = 50
         self.byzantine_percent = .1
         self.probability = .3
+        self.accuracy = []
         
     def run_batch_sim(self):
         for i in range(self.data_points):
@@ -19,9 +20,8 @@ class Batch_Simulation():
             #ind_var = np.random.randint(4,20)
             graph = sg.Kregular(self.order, ind_var, self.degree)
             graph.set_consensus_error(self.CONSENSUS_ERROR)
-            
             graph.run_sim()
-
+            self.accuracy.append(abs(graph.get_final_global_average()-graph.get_initial_global_average()))
             self.iteration_count.append(graph.get_iterations())
             self.indvar_count.append(ind_var)
 
@@ -33,10 +33,7 @@ class Batch_Simulation():
         plt.legend()
         plt.show()
         
-
-
-
-bs = Batch_Simulation(50)
+bs = Batch_Simulation(500)
 
 bs.run_batch_sim()
 bs.display_batch_sim()

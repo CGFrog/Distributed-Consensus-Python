@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>afd33d22-a8a6-4e93-b5e4-38adc056953d</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>batch_sim.py</StartupFile>
+    <StartupFile>matrix_model.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -23,6 +23,7 @@
   <ItemGroup>
     <Compile Include="batch_sim.py" />
     <Compile Include="Distributed_Consensus.py" />
+    <Compile Include="matrix_model.py" />
     <Compile Include="single_graph_sim.py">
       <SubType>Code</SubType>
     </Compile>

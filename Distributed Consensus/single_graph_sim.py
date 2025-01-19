@@ -162,7 +162,7 @@ class Simulation:
         self.percent_byzantine = percent_byzantine
         self.iterations = 0
         self.init_global_average = 0
-        self.end_globl_avgerage = 0
+        self.end_global_average = 0
         self.MAX_ITERATIONS = 2000 # If simulation cannot converge, it ends at this many iterations.
     
     def set_consensus_error(self, consensus_error):
@@ -314,7 +314,7 @@ class Simulation:
         self.init_global_average = self.calculate_global_average()
         #print(f"Initial global average: {self.init_global_average:.4f}")
         self.node_values_over_time, self.global_averages, self.agent_averages = self.track_values_and_averages()
-        self.end_globl_avgerage = self.calculate_global_average()
+        self.end_global_average = self.calculate_global_average()
         #print(f"Final global average: {final_average:.4f}")
 
         print("Consensus process complete!")
