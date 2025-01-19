@@ -13,7 +13,9 @@ class Agent:
         self.neighbor_weight = 1
         self.iterations = 0
         self.period = 4
-
+        self.node_values_over_time = []
+        self.global_averages = []
+        self.agent_averages = []
 
     """
     ALTERNATIVE (BETTER) METHOD OF DOING THIS ALGORITHM - IMPLEMENT THIS VERSION NEXT
@@ -46,16 +48,16 @@ class Agent:
                 an [ .1 .2  0 ... .2 ]         [an^1]            [an^2]
                 
        GENERATING A RANDOM STOCHASTIC MATRIX
-       ------------------------------------
+       -------------------------------------
        For each agent in our graph we will genrate random weights using the rand function
        we will then normalize them st their sum = 1
        we return this list as a dictionary with each key being the index of the agent in the graph and the value being the stochastic weight.
        
        We create a matrix in simulation class and append the weights of agent ai to the corresponding columns of the other agents weights.
        
-       ------------------------------------         
+       ----------------------       
         MATRIX MULTIPLICATION
-        ------------------------------------
+       ----------------------
             # Define two matrices
             A = np.array([[1, 2], [3, 4]])
             B = np.array([[5, 6], [7, 8]])
@@ -103,6 +105,28 @@ class Agent:
         self.iterations += 1
         return (self.neighbor_weight * sum(neighbor_values) + self.value * self.self_weight) / (len(neighbor_values) * self.neighbor_weight + self.self_weight)
     
+    #Trimmed Weighted Average, removes max and min element including itself.
+    def calculate_all_trimmed_average(self, neighbors):
+        all_values = [neighbor.get_shared_value() for neighbor in neighbors]
+        all_values.append(self.shared_value)  # Add the self-value
+
+        all_values.remove(max(all_values))
+        all_values.remove(min(all_values))
+
+        weighted_values = [
+            value * (self.self_weight if value == self.shared_value else self.neighbor_weight)
+            for value in all_values
+        ]
+
+        #self.iterations += 1
+
+        total_weight = sum(
+            self.self_weight if value == self.shared_value else self.neighbor_weight
+            for value in all_values
+        )
+        return sum(weighted_values) / total_weight
+
+    
      #Trimmed Weighted Average, removes element that has the largest difference.
     def calculate_relative_trimmed_average(self, neighbors):
         neighbor_values = [neighbor.get_shared_value() for neighbor in neighbors]
@@ -136,8 +160,14 @@ class Simulation:
         self.AGENT_WEIGHT = 1
         self.NEIGHBOR_WEIGHT = 1
         self.percent_byzantine = percent_byzantine
-        self.MAX_ITERATIONS = 1000 # If simulation cannot converge, it ends at this many iterations.
+        self.iterations = 0
+        self.init_global_average = 0
+        self.end_globl_avgerage = 0
+        self.MAX_ITERATIONS = 2000 # If simulation cannot converge, it ends at this many iterations.
     
+    def set_consensus_error(self, consensus_error):
+        self.CONSENSUS_ERROR = consensus_error
+
 
     # Initializes all agents with a random value. 
     def set_rand_node_values(self):
@@ -200,10 +230,10 @@ class Simulation:
         plt.show()
 
     # Shows the convergence figure with matplotlib 
-    def plot_values_and_global_average(self, node_values_over_time, global_averages, agent_averages):
+    def plot_values_and_global_average(self):
         plt.figure(figsize=(12, 8))
 
-        for node, values in node_values_over_time.items():
+        for node, values in self.node_values_over_time.items():
             is_byzantine = isinstance(self.G.nodes[node]['agent'], Byzantine)  # Check if the node is Byzantine
             label = f"Node {node} ({'Byzantine' if is_byzantine else 'Normal'})"
             linestyle = '--' if is_byzantine else '-'
@@ -211,8 +241,8 @@ class Simulation:
             color = 'purple' if is_byzantine else None  # Use a distinct color for Byzantine nodes
             plt.plot(values, label=label, linestyle=linestyle, alpha=alpha, color=color)
         
-        plt.plot(global_averages, label='Global Average', color='red', linewidth=2, marker='o')
-        plt.plot(agent_averages, label='Agent Average', color='blue', linewidth=2, marker='o')
+        plt.plot(self.global_averages, label='Global Average', color='red', linewidth=2, marker='o')
+        plt.plot(self.agent_averages, label='Agent Average', color='blue', linewidth=2, marker='o')
         plt.xlabel('Iteration')
         plt.ylabel('Value')
         plt.title('Node Values and Global Average')
@@ -232,6 +262,12 @@ class Simulation:
                     return False
         return True
 
+    def get_initial_global_average(self):
+        return self.init_global_average
+
+    def get_final_global_average(self):
+        return self.end_global_average
+
     def track_values_and_averages(self):
         node_values_over_time = {node: [] for node in self.G.nodes}
         global_averages = []
@@ -246,7 +282,7 @@ class Simulation:
         convergence_check = self.has_converged if nx.is_connected(self.G) else self.has_converged_islands
         while not convergence_check():
             if i >= self.MAX_ITERATIONS:
-                print("Maximum iterations reached. Exiting...")
+                #print("Maximum iterations reached. Exiting...")
                 break
             self.update_weighted_values()
             i += 1
@@ -254,6 +290,7 @@ class Simulation:
                 node_values_over_time[node].append(self.G.nodes[node]['agent'].value)
             global_averages.append(self.calculate_global_average())
             agent_averages.append(self.calculate_nonbyzantine_average())
+        self.iterations = i
         return node_values_over_time, global_averages, agent_averages
 
     # Iteratively averages each agent's value with its neighbors.
@@ -264,42 +301,46 @@ class Simulation:
         for node in self.G.nodes:
             neighbors = [self.G.nodes[n]['agent'] for n in self.G.neighbors(node)]
             # We can change the averaging method used by our agents here.
-            self.G.nodes[node]['agent'].value = self.G.nodes[node]['agent'].calculate_relative_trimmed_average(neighbors)
+            self.G.nodes[node]['agent'].value = self.G.nodes[node]['agent'].calculate_all_trimmed_average(neighbors)
         for node in self.G.nodes:
             self.G.nodes[node]['agent'].shared_to_value()
+    
+    def get_iterations(self):
+        return self.iterations
 
     def run_sim(self):
         self.set_rand_node_values()
         self.set_byzantine_agents()
-        self.global_average = self.calculate_global_average()
-        print(f"Initial global average: {self.global_average:.4f}")
-        node_values_over_time, global_averages, agent_averages = self.track_values_and_averages()
-        final_average = self.calculate_global_average()
-        print(f"Final global average: {final_average:.4f}")
-        self.plot_values_and_global_average(node_values_over_time, global_averages, agent_averages)
-        self.display_final_graph()
+        self.init_global_average = self.calculate_global_average()
+        #print(f"Initial global average: {self.init_global_average:.4f}")
+        self.node_values_over_time, self.global_averages, self.agent_averages = self.track_values_and_averages()
+        self.end_globl_avgerage = self.calculate_global_average()
+        #print(f"Final global average: {final_average:.4f}")
+
         print("Consensus process complete!")
 
 class Cyclic(Simulation):
     def __init__(self,order, percent_byzantine):
         super().__init__(order, percent_byzantine)
         self.G=nx.cycle_graph(order)
-        self.run_sim()
 
 class Kregular(Simulation):
     def __init__(self,order, percent_byzantine, degree):
         super().__init__(order, percent_byzantine)
         self.degree=degree
         self.G=nx.random_regular_graph(degree,order)
-        self.run_sim()
 
 class Binomial(Simulation):
     def __init__(self,order,percent_byzantine, probability):
         super().__init__(order, percent_byzantine)
         self.probability = probability
         self.G=nx.erdos_renyi_graph(order,probability)
-        self.run_sim()
 
-#Binomial(40,.1,.05)
+#Binomial(40,.05,1)
 #Cyclic(50,.1)
-Kregular(30,.05,4)
+#graph = Kregular(30,.05,5)
+#graph.run_sim()
+"""
+graph.plot_values_and_global_average()
+graph.display_final_graph()
+"""

@@ -1,3 +1,4 @@
+from pickletools import read_stringnl_noescape_pair
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
@@ -185,6 +186,7 @@ class Binomial(Simulation):
             self.iterations.append(self.convergence_point(G,self.allow_islands))
             self.ind_var_data.append(rn)
             d+=1
+    
 
     def run_sim(self):
         if self.ind_var.lower() == "probability":
