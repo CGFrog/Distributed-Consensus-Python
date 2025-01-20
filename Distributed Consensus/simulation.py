@@ -46,7 +46,6 @@ class Simulation:
 
         return iterations
 
-
     def has_converged_islands(self, G):
         connected_components = nx.connected_components(G)
         for component in connected_components:
@@ -145,7 +144,6 @@ class Kregular(Simulation):
             self.degree_ind_var()
         else:
             self.order_ind_var()
-
                 
 class Binomial(Simulation):
     def __init__(self,ind_var,data_points,allow_islands, fixed_value):

@@ -18,7 +18,7 @@ class Batch_Simulation():
         for i in range(self.data_points):
             ind_var = np.random.uniform(0, 0.2)
             #ind_var = np.random.randint(4,20)
-            graph = sg.Kregular(self.order, ind_var, self.degree)
+            graph = sg.Kregular(self.order, .05, self.degree)
             graph.set_consensus_error(self.CONSENSUS_ERROR)
             graph.run_sim()
             self.accuracy.append(abs(graph.get_final_global_average()-graph.get_initial_global_average()))
