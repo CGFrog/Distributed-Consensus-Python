@@ -127,7 +127,7 @@ class Byzantine(Agent):
         #return self.__generate_random_normal()
 
 class Simulation:
-    def __init__(self,order, amount_byzantine):
+    def __init__(self,order, amount_byzantine, averaging_function):
         self.order = order
         self.G = nx.empty_graph()
         self.CONSENSUS_ERROR = 0
@@ -139,14 +139,14 @@ class Simulation:
         self.init_global_average = 0
         self.end_global_average = 0
         self.MAX_ITERATIONS = 500 # If simulation cannot converge, it ends at this many iterations.
+        self.averaging_function = averaging_function
 
     def set_consensus_error(self, consensus_error):
         self.CONSENSUS_ERROR = consensus_error
 
+
     def set_rand_node_values(self):
         initial_values = np.random.rand(len(self.G.nodes))
-    
-        # Map nodes to their index
         node_mapping = {node: i for i, node in enumerate(self.G.nodes)}
     
         for node in self.G.nodes:
@@ -154,16 +154,16 @@ class Simulation:
     
         for node in self.G.nodes:
             self.G.nodes[node]['agent'].value = initial_values[node_mapping[node]]
-# Converts some percentage of agents to byzantine agents.
+
     def set_byzantine_agents(self):
         n = len(self.G.nodes)
         node_list = list(self.G.nodes)
         byzantine_nodes = np.random.choice(node_list, size=self.amount_byzantine, replace=False)
         for node in byzantine_nodes:
-            node = int(node)  # Ensure it's a Python int
+            node = int(node)
             if node in self.G.nodes:
-                val = self.G.nodes[node]['agent'].value  # Get the agent's value
-                self.G.nodes[node]['agent'] = Byzantine(val)  # Assign Byzantine agent
+                val = self.G.nodes[node]['agent'].value 
+                self.G.nodes[node]['agent'] = Byzantine(val)
             else:
                 print(f"Warning: Node {node} not found in graph!")
 
@@ -251,7 +251,7 @@ class Simulation:
         ax.set_title(f"Order: {self.order} | Iterations: {self.iterations}\n"
             f"Error: {self.CONSENSUS_ERROR} | Byzantines: {self.amount_byzantine}\n"
             f"Degree/Probability: {self.special_var}\n"
-            f"$\\forall N(a_i)\\in G, 3|B|+1<|A|=$ {can_converge}")
+            f"$\\forall a\\in G,B\\subseteq N(a) : 3b+1<|N(a)|-|B|=$ {can_converge}")
 
     def save_graph(self,name):
         G_copy = self.G.copy()
@@ -334,11 +334,18 @@ class Simulation:
         w_agent = self.AGENT_WEIGHT
 
         for node in self.G.nodes:
+            agent = self.G.nodes[node]['agent']
             neighbors = [self.G.nodes[n]['agent'] for n in self.G.neighbors(node)]
-            # We can change the averaging method used by our agents here.
-            self.G.nodes[node]['agent'].value = self.G.nodes[node]['agent'].calculate_trimmed_average(neighbors)
+
+            # Call the stored function reference directly
+            averaging_method = getattr(agent, self.averaging_function)  # Retrieve the method by name
+            agent.value = averaging_method(neighbors)  # Call the retrieved function
+
+
         for node in self.G.nodes:
             self.G.nodes[node]['agent'].shared_to_value()
+
+
 
     def get_iterations(self):
         return self.iterations
@@ -360,36 +367,36 @@ class Simulation:
 
 
 class Cyclic(Simulation):
-    def __init__(self,order, amount_byzantine):
-        super().__init__(order, amount_byzantine)
+    def __init__(self,order, amount_byzantine, averaging_function):
+        super().__init__(order, amount_byzantine, averaging_function)
         self.G=nx.cycle_graph(order)
         self.special_var=None
 
 class Kregular(Simulation):
-    def __init__(self,order, amount_byzantine, degree):
-        super().__init__(order, amount_byzantine)
+    def __init__(self,order, amount_byzantine, averaging_function, degree):
+        super().__init__(order, amount_byzantine, averaging_function)
         self.degree=degree
         self.G=nx.random_regular_graph(degree,order)
         self.special_var = degree
 
 class Binomial(Simulation):
-    def __init__(self,order,amount_byzantine, probability):
-        super().__init__(order, amount_byzantine)
+    def __init__(self,order,amount_byzantine, averaging_function, probability):
+        super().__init__(order, amount_byzantine,averaging_function)
         self.probability = probability
         self.G=nx.erdos_renyi_graph(order,probability)
         self.special_var = probability
 
 class Small_World(Simulation):
-    def __init__(self, order, amount_byzantine, k, p):
-        super().__init__(order, amount_byzantine)
+    def __init__(self, order, amount_byzantine, averaging_function, k, p):
+        super().__init__(order, amount_byzantine, averaging_function,)
         self.k = k  # Each node is connected to `k` nearest neighbors
         self.p = p  # Probability of rewiring an edge
         self.G = nx.watts_strogatz_graph(self.order, self.k, self.p)
         self.special_var = f"k={k}, p={p}"
 
 class LoadedGraph(Simulation):
-    def __init__(self, filename):
-        super().__init__(order=0, amount_byzantine=0)
+    def __init__(self, filename, averaging_function):
+        super().__init__(order=0, amount_byzantine=0, averaging_function=averaging_function)
         self.G = nx.read_graphml(filename)
         self.order = self.G.number_of_nodes()
         self.special_var = f"Loaded from {filename}"

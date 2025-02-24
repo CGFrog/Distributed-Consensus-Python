@@ -30,6 +30,17 @@ class GraphEditor:
         options = ["Cyclic", "Erdos-Renyi", "K-Regular", "Small World", "Load Graph"]
         dropdown = tk.OptionMenu(self.main_frame, self.selected_option, *options)
         dropdown.pack(pady=10)
+        self.average_methods = {
+            "Trimmed Average": "calculate_trimmed_average",
+            "Mean Average": "calculate_average",
+            "Relative Trimmed Average": "calculate_relative_trimmed_average"
+        }
+
+        self.selected_method = tk.StringVar(value=list(self.average_methods.values())[0])
+        self.avg_method_menu = tk.OptionMenu(
+            self.main_frame, self.selected_method, *self.average_methods.values()
+        )
+        self.avg_method_menu.pack()
 
     def _update_settings(self, *args):
         selection = self.selected_option.get()
@@ -82,23 +93,23 @@ class GraphEditor:
 
             if graph_type == "Erdos-Renyi":
                 probability = float(params.get("Probability", 0))
-                self.simulation = cs.Binomial(order, byzantines, probability)
+                self.simulation = cs.Binomial(order, byzantines,self.selected_method.get(), probability)
 
             elif graph_type == "K-Regular":
                 k_value = int(params.get("K Value", 0))
-                self.simulation = cs.Kregular(order, byzantines, k_value)
+                self.simulation = cs.Kregular(order, byzantines, self.selected_method.get(),k_value)
 
             elif graph_type == "Small World":
                 degree = int(params.get("Degree", 0))
                 rewiring_prob = float(params.get("Rewiring Probability", 0))
-                self.simulation = cs.Small_World(order, byzantines, degree, rewiring_prob)
+                self.simulation = cs.Small_World(order, byzantines,self.selected_method.get(), degree, rewiring_prob)
 
             elif graph_type == "Cyclic":
-                self.simulation = cs.Cyclic(order, byzantines)
+                self.simulation = cs.Cyclic(order,self.selected_method.get(), byzantines)
 
             elif graph_type == "Load Graph":
                 if self.file_path:
-                    self.simulation = cs.LoadedGraph(self.file_path)
+                    self.simulation = cs.LoadedGraph(self.file_path,self.selected_method.get())
                 else:
                     print("Error: No file selected!")
                     return
