@@ -7,6 +7,9 @@ from numpy.random import rand
 import scipy as sp
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+import tkinter as tk
+from tkinter import ttk
+
 
 """
 1. Check if this condition holds for all agents (B=Byzantine Neighbors of agent i): 3B_i + 1 < Neighbors(i)
@@ -22,11 +25,14 @@ class Agent:
         self.neighbor_weight = 1
         self.iterations = 0
         self.period = 4
-        self.node_values_over_time = []
         self.global_averages = []
         self.agent_averages = []
         self.special_var = ""
         self.f = 1
+        self.byzantine_count = 0
+        self.total_neighbors = 0
+        self.can_converge = None
+        self.n_byz_count = {}
 
     def calculate_average(self, neighbors):
         neighbor_values = [neighbor.get_shared_value() for neighbor in neighbors]
@@ -82,17 +88,27 @@ class Agent:
     def shared_to_value(self):
         self.shared_value = self.value
 
-    def valid_byzantine_ratio(self, neighbors):
+    def _byzantine_neighbors(self,neighbors):
         byzantine_count = 0
         for neighbor in neighbors:
-            if isinstance(neighbor, Byzantine):  # Directly check neighbor
-                byzantine_count += 1
-            if byzantine_count >= len(neighbors) / 3:
-                print("Here")
-                return False
-        return True
+            if isinstance(neighbor, Byzantine):
+                byzantine_count += 1    
+        return byzantine_count
+        
+    def valid_byzantine_ratio(self, neighbors):
+        self.total_neighbors = len(neighbors)
+        self.byzantine_count = self._byzantine_neighbors(neighbors)
+        if 3*self.byzantine_count+1 < len(neighbors)-self.byzantine_count:
+            self.can_converge = True
+            return True
+        self.can_converge = False
+        return False
 
-
+    def get_neighbor_byzantine_count(self, neighbors, G):
+        self.n_byz_count = {} 
+        for neighbor in neighbors:
+            agent_obj = G.nodes[neighbor]['agent']
+            self.n_byz_count[neighbor] = agent_obj.byzantine_count
 
 class Byzantine(Agent):
     def __init__(self, value):
@@ -119,6 +135,7 @@ class Simulation:
         self.NEIGHBOR_WEIGHT = 1
         self.amount_byzantine = amount_byzantine
         self.iterations = 0
+        self.meets_convergence_req = None
         self.init_global_average = 0
         self.end_global_average = 0
         self.MAX_ITERATIONS = 500 # If simulation cannot converge, it ends at this many iterations.
@@ -170,12 +187,13 @@ class Simulation:
         return True
 
     def __can_converge(self):
+        can_converge=True
         for agent in self.G.nodes:
             agent_obj = self.G.nodes[agent]['agent']
             neighbor_agents = [self.G.nodes[n]['agent'] for n in self.G.neighbors(agent)]
             if not agent_obj.valid_byzantine_ratio(neighbor_agents):
-                return False
-        return True
+                can_converge=False #We dont stop prematurely because this function needs to run for all nodes (bad code on my part but will fix later probably)
+        return can_converge
 
     def _compute_byzantine_counts(self):
         return {
@@ -201,20 +219,20 @@ class Simulation:
 
     def _plot_node_values(self, ax, node_colors, node_linewidths):
         for node, values in self.node_values_over_time.items():
-            is_byzantine = isinstance(self.G.nodes[node]['agent'], Byzantine)
-            linestyle = '--' if is_byzantine else '-'
-            alpha = 0.9 if is_byzantine else 0.7
-            color = node_colors[node] 
-            linewidth = node_linewidths[node]
+            agent = self.G.nodes[node]['agent']
+            is_byzantine = isinstance(agent, Byzantine)
 
-            ax.plot(values, label=f"Node {node} ({'Byzantine' if is_byzantine else 'Normal'})", 
-                    linestyle=linestyle, alpha=alpha, color=color, linewidth=linewidth)
+            ax.plot(values, label=f"Node {node} ({'Byzantine' if is_byzantine else 'Normal'})",
+                linestyle='--' if is_byzantine else '-', alpha=0.9 if is_byzantine else 0.7,
+                color=node_colors[node], linewidth=node_linewidths[node])
 
         ax.plot(self.global_averages, label='Global Average', color='red', linewidth=2, marker='o')
         ax.plot(self.agent_averages, label='Agent Average', color='blue', linewidth=2, marker='o')
-        ax.set_xlabel('Iteration')
-        ax.set_ylabel('Value')
-        ax.set_title(f'Node Values and Global Average\nDifference: {abs(self.init_global_average - self.end_global_average):.4f}\n Init: {self.init_global_average:.4f} End: {self.end_global_average:.4f}')
+
+        ax.set(xlabel='Iteration', ylabel='Value',
+            title=f'Node Values and Global Average\n'
+                f'Difference: {abs(self.init_global_average - self.end_global_average):.4f}\n'
+                f'Init: {self.init_global_average:.4f} End: {self.end_global_average:.4f}')
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Legend")
         ax.grid(True)
 
@@ -223,52 +241,54 @@ class Simulation:
         nx.draw(self.G, pos, with_labels=False, node_color=list(node_colors.values()), node_size=1350, ax=ax)
 
         labels = {
-            node: f"{node}\n{self.G.nodes[node]['agent'].value:.2f}\n{'Byzantine' if isinstance(self.G.nodes[node]['agent'], Byzantine) else 'Normal'}\nF={byzantine_counts[node]}"
+            node: (f"{node}\n{self.G.nodes[node]['agent'].value:.2f}\n"
+                f"{'Byzantine' if isinstance(self.G.nodes[node]['agent'], Byzantine) else 'Normal'}\n"
+                f"F={byzantine_counts[node]}")
             for node in self.G.nodes
         }
-    
+
         nx.draw_networkx_labels(self.G, pos, labels=labels, font_size=8, font_color="white", ax=ax)
-        ax.set_title(f"Graph\n Order: {self.order} | Iterations:{self.iterations}\n Error: {self.CONSENSUS_ERROR} | Byzantines: {self.amount_byzantine}\n Degree/Probability: {self.special_var}\n Can Converge {can_converge}")
+        ax.set_title(f"Order: {self.order} | Iterations: {self.iterations}\n"
+            f"Error: {self.CONSENSUS_ERROR} | Byzantines: {self.amount_byzantine}\n"
+            f"Degree/Probability: {self.special_var}\n"
+            f"$\\forall N(a_i)\\in G, 3|B|+1<|A|=$ {can_converge}")
 
-
-    def _save_graph_prompt(self):
-        print("Save graph? Y/N")
-        choice = input().strip().upper()
-        if choice == "Y":
-            print("Enter filename:")
-            name = input().strip()
-            G_copy = self.G.copy()  # Copy to avoid modifying the original graph
-        
-            # Convert Agent objects into serializable attributes
-            for node in G_copy.nodes:
-                agent = G_copy.nodes[node].get('agent')
-                if isinstance(agent, Byzantine):
-                    G_copy.nodes[node]['agent_type'] = "Byzantine"
-                    G_copy.nodes[node]['agent_value'] = str(agent.initial_value)
-                elif isinstance(agent, Agent):
-                    G_copy.nodes[node]['agent_type'] = "Normal"
-                    G_copy.nodes[node]['agent_value'] = str(agent.initial_value)
+    def save_graph(self,name):
+        G_copy = self.G.copy()
+        for node in G_copy.nodes:
+            agent = G_copy.nodes[node].get('agent')
+            if isinstance(agent, Byzantine):
+                G_copy.nodes[node]['agent_type'] = "Byzantine"
+                G_copy.nodes[node]['agent_value'] = str(agent.initial_value)
+            elif isinstance(agent, Agent):
+                G_copy.nodes[node]['agent_type'] = "Normal"
+                G_copy.nodes[node]['agent_value'] = str(agent.initial_value)
             
-                if 'agent' in G_copy.nodes[node]:
-                    del G_copy.nodes[node]['agent']
+            if 'agent' in G_copy.nodes[node]:
+                del G_copy.nodes[node]['agent']
 
-            nx.write_graphml(G_copy, f"{name}.graphml")
-            print("Graph Saved")
-
-
+        nx.write_graphml(G_copy, name)
+        print("Graph Saved")
 
     def display_combined_plots(self):
         fig, axes = plt.subplots(1, 2, figsize=(20, 8))
+
         byzantine_counts = self._compute_byzantine_counts()
         node_colors, node_linewidths = self._compute_node_styles(byzantine_counts)
-        self._plot_node_values(axes[0], node_colors, node_linewidths)
-        can_converge = self.__can_converge()
-        self._draw_graph(axes[1], byzantine_counts, node_colors, can_converge)
-        plt.show()
-        if not isinstance(self,LoadedGraph):
-            self._save_graph_prompt()
 
+        self._plot_node_values(axes[0], node_colors, node_linewidths)      
+        self._draw_graph(axes[1], byzantine_counts, node_colors, self.meets_convergence_req)
 
+        return fig 
+
+    
+    def get_stats(self):
+        stats = {}
+        stats["Order"]=self.order
+        stats["Byzantines"]=self.amount_byzantine
+        stats["Iterations"] = self.iterations
+        return stats
+        
     # If a graph contains islands, we will check for convergence of each island.
     def has_converged_islands(self):
         connected_components = nx.connected_components(self.G)
@@ -333,11 +353,17 @@ class Simulation:
         self.end_global_average = self.calculate_global_average()
         print(f"Final global average: {self.end_global_average:.4f}")
         print("Consensus process complete!")
+        self.meets_convergence_req = self.__can_converge()
+        for agent in self.G.nodes:
+            agent_data = self.G.nodes[agent]
+            agent_data['agent'].get_neighbor_byzantine_count(self.G.neighbors(agent),self.G)
+
 
 class Cyclic(Simulation):
     def __init__(self,order, amount_byzantine):
         super().__init__(order, amount_byzantine)
         self.G=nx.cycle_graph(order)
+        self.special_var=None
 
 class Kregular(Simulation):
     def __init__(self,order, amount_byzantine, degree):
@@ -379,17 +405,3 @@ class LoadedGraph(Simulation):
                 self.G.nodes[node]['agent'] = Agent(agent_value)
 
         print(f"Graph loaded from {filename}. Nodes: {self.order}")
-
-
-
-
-
-
-#graph = Binomial(30,.05,.4)
-#graph = Cyclic(30,.05)
-#graph = Small_World(25,1,6,.8)
-
-graph = LoadedGraph("Test.graphml")
-
-graph.run_sim()
-graph.display_combined_plots()
