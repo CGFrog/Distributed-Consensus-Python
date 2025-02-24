@@ -9,7 +9,7 @@ class GraphEditor:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Consensus Simulation")
-        self.root.geometry("350x450")
+        self.root.geometry("350x550")
 
         self.simulation = None
         self.selected_option = tk.StringVar()
@@ -268,17 +268,16 @@ class GraphEditor:
             fig, ax = plt.subplots(figsize=(5, 4))
             time_steps = list(range(len(node_values_over_time))) 
         
-            # Plot agent's values over time (blue line)
+            # Plot agent's values
             ax.plot(time_steps, node_values_over_time, linestyle="-", color="b", label=f"Agent {agent_id}")
         
-            # Plot neighbors' values over time (light gray)
+            # Plot neighbors' values
             neighbors = list(self.simulation.G.neighbors(agent_id))
             for neighbor in neighbors:
                 if neighbor in self.simulation.node_values_over_time:
                     neighbor_values = self.simulation.node_values_over_time[neighbor]
                     ax.plot(time_steps, neighbor_values, linestyle="--", color="gray", alpha=0.5)
 
-            # Plot agent_averages over time (red dashed line)
             if hasattr(self.simulation, "agent_averages"):
                 ax.plot(time_steps, self.simulation.agent_averages, linestyle="--", color="r", label="Average")
 

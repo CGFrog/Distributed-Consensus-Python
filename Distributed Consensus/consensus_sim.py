@@ -10,12 +10,6 @@ import matplotlib.colors as mcolors
 import tkinter as tk
 from tkinter import ttk
 
-
-"""
-1. Check if this condition holds for all agents (B=Byzantine Neighbors of agent i): 3B_i + 1 < Neighbors(i)
-2. Save graphs
-"""
-
 class Agent:
     def __init__(self, value):
         self.value = value
@@ -251,7 +245,7 @@ class Simulation:
         ax.set_title(f"Order: {self.order} | Iterations: {self.iterations}\n"
             f"Error: {self.CONSENSUS_ERROR} | Byzantines: {self.amount_byzantine}\n"
             f"Degree/Probability: {self.special_var}\n"
-            f"$\\forall a\\in G,B\\subseteq N(a) : 3b+1<|N(a)|-|B|=$ {can_converge}")
+            f"$\\forall a\\in G,B\\subseteq N(a) : 3|B|+1<|N(a)-B|=$ {can_converge}")
 
     def save_graph(self,name):
         G_copy = self.G.copy()
@@ -332,16 +326,11 @@ class Simulation:
     def update_weighted_values(self):
         w_neighbor = self.NEIGHBOR_WEIGHT
         w_agent = self.AGENT_WEIGHT
-
         for node in self.G.nodes:
             agent = self.G.nodes[node]['agent']
             neighbors = [self.G.nodes[n]['agent'] for n in self.G.neighbors(node)]
-
-            # Call the stored function reference directly
-            averaging_method = getattr(agent, self.averaging_function)  # Retrieve the method by name
-            agent.value = averaging_method(neighbors)  # Call the retrieved function
-
-
+            averaging_method = getattr(agent, self.averaging_function)
+            agent.value = averaging_method(neighbors)
         for node in self.G.nodes:
             self.G.nodes[node]['agent'].shared_to_value()
 
@@ -404,7 +393,6 @@ class LoadedGraph(Simulation):
         for node in self.G.nodes:
             agent_type = str(self.G.nodes[node].get("agent_type", "Normal"))
             agent_value = float(self.G.nodes[node].get("agent_value", 0.0))
-            
             if agent_type.strip() == "Byzantine":
                 self.G.nodes[node]['agent'] = Byzantine(agent_value)
                 self.amount_byzantine+=1
