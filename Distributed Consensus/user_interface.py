@@ -8,13 +8,14 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 class GraphEditor:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Consensus Simulation")
+        self.root.title("Approximate Average Multi-Agent Consensus Simulation")
         self.root.geometry("350x550")
 
         self.simulation = None
         self.selected_option = tk.StringVar()
         self.selected_option.set("Select a Graph")
         self.selected_option.trace_add("write", self._update_settings)
+        self.selected_method = None
 
         self.input_fields = {}
         self.file_path = None
@@ -33,7 +34,8 @@ class GraphEditor:
         self.average_methods = {
             "Trimmed Average": "calculate_trimmed_average",
             "Mean Average": "calculate_average",
-            "Relative Trimmed Average": "calculate_relative_trimmed_average"
+            "Relative Trimmed Average": "calculate_relative_trimmed_average",
+            "Calculate Mode": "calculate_mode"
         }
 
         self.selected_method = tk.StringVar(value=list(self.average_methods.values())[0])
@@ -44,7 +46,6 @@ class GraphEditor:
 
     def _update_settings(self, *args):
         selection = self.selected_option.get()
-
         for widget in self.main_frame.winfo_children():
             if isinstance(widget, tk.Frame):
                 widget.destroy()
@@ -52,11 +53,10 @@ class GraphEditor:
         settings_frame = tk.Frame(self.main_frame)
         settings_frame.pack()
         self.input_fields.clear()
-
         if self.save_button:
             self.save_button.destroy()
             self.save_button = None
-
+        
         if selection != "Load Graph":
             self._add_input_field(settings_frame, "Order")
             self._add_input_field(settings_frame, "Byzantines")
@@ -72,6 +72,7 @@ class GraphEditor:
             tk.Button(settings_frame, text="Browse File", command=self._load_graph).pack()
             self.file_label = tk.Label(settings_frame, text="No file selected")
             self.file_label.pack()
+        self._add_input_field(settings_frame, "f smallest and f largest nodes to trim: f")
 
     def _add_input_field(self, parent, label_text):
         tk.Label(parent, text=f"{label_text}:").pack()
@@ -89,27 +90,27 @@ class GraphEditor:
 
         try:
             order = int(params.get("Order", 0)) if "Order" in params else None
+            f = int(params.get("f smallest and f largest nodes to trim: f", 0)) if "f smallest and f largest nodes to trim: f" in params else None
             byzantines = int(params.get("Byzantines", 0)) if "Byzantines" in params else None
-
             if graph_type == "Erdos-Renyi":
                 probability = float(params.get("Probability", 0))
-                self.simulation = cs.Binomial(order, byzantines,self.selected_method.get(), probability)
+                self.simulation = cs.Binomial(order, byzantines,self.selected_method.get(), f,probability)
 
             elif graph_type == "K-Regular":
                 k_value = int(params.get("K Value", 0))
-                self.simulation = cs.Kregular(order, byzantines, self.selected_method.get(),k_value)
+                self.simulation = cs.Kregular(order, byzantines, self.selected_method.get(),f,k_value)
 
             elif graph_type == "Small World":
                 degree = int(params.get("Degree", 0))
                 rewiring_prob = float(params.get("Rewiring Probability", 0))
-                self.simulation = cs.Small_World(order, byzantines,self.selected_method.get(), degree, rewiring_prob)
+                self.simulation = cs.Small_World(order, byzantines,self.selected_method.get(),f, degree, rewiring_prob)
 
             elif graph_type == "Cyclic":
-                self.simulation = cs.Cyclic(order,self.selected_method.get(), byzantines)
+                self.simulation = cs.Cyclic(order, byzantines,self.selected_method.get(),f)
 
             elif graph_type == "Load Graph":
                 if self.file_path:
-                    self.simulation = cs.LoadedGraph(self.file_path,self.selected_method.get())
+                    self.simulation = cs.LoadedGraph(self.file_path,self.selected_method.get(),f)
                 else:
                     print("Error: No file selected!")
                     return
@@ -188,7 +189,6 @@ class GraphEditor:
 
 
     def _add_agent_graph_ui(self):
-        """UI for graphing an agent's values."""
         frame = tk.Frame(self.root)
         frame.pack(pady=10)
 
@@ -228,7 +228,6 @@ class GraphEditor:
 
 
     def _save_figure(self):
-        """Opens a save dialog and saves the current figure."""
         file_path = filedialog.asksaveasfilename(
             defaultextension=".png",
             filetypes=[("PNG Files", "*.png"), ("PDF Files", "*.pdf"), ("All Files", "*.*")]

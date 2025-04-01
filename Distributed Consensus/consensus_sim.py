@@ -7,8 +7,7 @@ from numpy.random import rand
 import scipy as sp
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
-import tkinter as tk
-from tkinter import ttk
+from collections import Counter
 
 class Agent:
     def __init__(self, value):
@@ -32,6 +31,17 @@ class Agent:
         neighbor_values = [neighbor.get_shared_value() for neighbor in neighbors]
         self.iterations += 1
         return (self.neighbor_weight * sum(neighbor_values) + self.value * self.self_weight) / (len(neighbor_values) * self.neighbor_weight + self.self_weight)
+
+    def calculate_mode(self, neighbors):
+        neighbor_values = [neighbor.get_shared_value() for neighbor in neighbors]
+        neighbor_values.append(self.value)
+        counts = Counter(neighbor_values) 
+        max_count = max(counts.values())
+        most_common = [val for val, count in counts.items() if count == max_count]
+        if len(most_common) > 1:
+            return self.value
+    
+        return most_common[0]
 
     def calculate_trimmed_average(self, neighbors):
         neighbor_values = [neighbor.get_shared_value() for neighbor in neighbors]
@@ -92,7 +102,7 @@ class Agent:
     def valid_byzantine_ratio(self, neighbors):
         self.total_neighbors = len(neighbors)
         self.byzantine_count = self._byzantine_neighbors(neighbors)
-        if 3*self.byzantine_count+1 < len(neighbors)-self.byzantine_count:
+        if 3*self.byzantine_count+1 <= len(neighbors):
             self.can_converge = True
             return True
         self.can_converge = False
@@ -116,12 +126,13 @@ class Byzantine(Agent):
         return data
 
     def get_shared_value(self):
-        #if(np.random.rand() > 0.5):
         return np.random.rand()
-        #return self.__generate_random_normal()
+
+    def get_shared_value_gaussian(self):
+        return self.__generate_random_normal()
 
 class Simulation:
-    def __init__(self,order, amount_byzantine, averaging_function):
+    def __init__(self,order, amount_byzantine, averaging_function,f):
         self.order = order
         self.G = nx.empty_graph()
         self.CONSENSUS_ERROR = 0
@@ -134,10 +145,16 @@ class Simulation:
         self.end_global_average = 0
         self.MAX_ITERATIONS = 500 # If simulation cannot converge, it ends at this many iterations.
         self.averaging_function = averaging_function
+        self.mode = 0
+        self.f = f
 
     def set_consensus_error(self, consensus_error):
         self.CONSENSUS_ERROR = consensus_error
 
+
+    def _set_agent_values(self):
+        if self.averaging_function=="calculate_mode":self.set_rand_node_integer_values()
+        else: self.set_rand_node_values()
 
     def set_rand_node_values(self):
         initial_values = np.random.rand(len(self.G.nodes))
@@ -146,6 +163,18 @@ class Simulation:
         for node in self.G.nodes:
             nx.set_node_attributes(self.G, {node: {'agent': Agent(initial_values[node_mapping[node]])}})
     
+        for node in self.G.nodes:
+            self.G.nodes[node]['agent'].value = initial_values[node_mapping[node]]
+            self.G.nodes[node]['agent'].f = self.f
+
+    def set_rand_node_integer_values(self, low=0, high=10):
+        lambda_ = (high + low) / 2
+        initial_values = np.clip(np.random.poisson(lambda_, len(self.G.nodes)), low, high - 1)
+        node_mapping = {node: i for i, node in enumerate(self.G.nodes)}
+        self.mode = max(set(list(initial_values)), key=list(initial_values).count)
+        for node in self.G.nodes:
+            nx.set_node_attributes(self.G, {node: {'agent': Agent(initial_values[node_mapping[node]])}})
+
         for node in self.G.nodes:
             self.G.nodes[node]['agent'].value = initial_values[node_mapping[node]]
 
@@ -161,7 +190,6 @@ class Simulation:
             else:
                 print(f"Warning: Node {node} not found in graph!")
 
-
     # Calculates global average with byzantine agents.
     def calculate_global_average(self):
         values = [self.G.nodes[n]['agent'].value for n in self.G.nodes]
@@ -170,6 +198,10 @@ class Simulation:
     # Calculates global average without byzantine agents.
     def calculate_nonbyzantine_average(self):
         values = [self.G.nodes[n]['agent'].value for n in self.G.nodes if not isinstance(self.G.nodes[n]['agent'], Byzantine)]
+        return sum(values) / len(values)
+
+    def calculate_pure_agent_average(self):
+        values = [self.G.nodes[n]['agent'].value for n in self.G.nodes if not isinstance(self.G.nodes[n]['agent'] and self.G.nodes[n]['agent'].byzantine_count==0, Byzantine)]
         return sum(values) / len(values)
 
     # Checks if all agent's values are within some margin of error of the global average, if they are, the simulation ends.
@@ -216,19 +248,22 @@ class Simulation:
             agent = self.G.nodes[node]['agent']
             is_byzantine = isinstance(agent, Byzantine)
 
-            ax.plot(values, label=f"Node {node} ({'Byzantine' if is_byzantine else 'Normal'})",
-                linestyle='--' if is_byzantine else '-', alpha=0.9 if is_byzantine else 0.7,
-                color=node_colors[node], linewidth=node_linewidths[node])
+            ax.plot(values, label="_nolegend_",
+                    linestyle='--' if is_byzantine else '-', alpha=0.9 if is_byzantine else 0.7,
+                    color=node_colors[node], linewidth=node_linewidths[node])
 
         ax.plot(self.global_averages, label='Global Average', color='red', linewidth=2, marker='o')
         ax.plot(self.agent_averages, label='Agent Average', color='blue', linewidth=2, marker='o')
+        ax.plot(self.pure_averages, label='No Byzantine Neighbors Average', color='cyan', linewidth=2, marker='o')
 
         ax.set(xlabel='Iteration', ylabel='Value',
-            title=f'Node Values and Global Average\n'
-                f'Difference: {abs(self.init_global_average - self.end_global_average):.4f}\n'
-                f'Init: {self.init_global_average:.4f} End: {self.end_global_average:.4f}')
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Legend")
+               title=f'Node Values and Global Average\n'
+                     f'Difference: {abs(self.init_global_average - self.end_global_average):.4f} Mode: {self.mode}\n'
+                     f'Init: {self.init_global_average:.4f} End: {self.end_global_average:.4f}')
+    
+        ax.legend(loc='upper center', bbox_to_anchor=(1, 0.5), title="Legend")
         ax.grid(True)
+
 
     def _draw_graph(self, ax, byzantine_counts, node_colors, can_converge):
         pos = nx.spring_layout(self.G)
@@ -240,12 +275,11 @@ class Simulation:
                 f"F={byzantine_counts[node]}")
             for node in self.G.nodes
         }
-
         nx.draw_networkx_labels(self.G, pos, labels=labels, font_size=8, font_color="white", ax=ax)
         ax.set_title(f"Order: {self.order} | Iterations: {self.iterations}\n"
             f"Error: {self.CONSENSUS_ERROR} | Byzantines: {self.amount_byzantine}\n"
             f"Degree/Probability: {self.special_var}\n"
-            f"$\\forall a\\in G,B\\subseteq N(a) : 3|B|+1<|N(a)-B|=$ {can_converge}")
+            f"$3F+1\leq n$ {can_converge}")
 
     def save_graph(self,name):
         G_copy = self.G.copy()
@@ -257,7 +291,6 @@ class Simulation:
             elif isinstance(agent, Agent):
                 G_copy.nodes[node]['agent_type'] = "Normal"
                 G_copy.nodes[node]['agent_value'] = str(agent.initial_value)
-            
             if 'agent' in G_copy.nodes[node]:
                 del G_copy.nodes[node]['agent']
 
@@ -266,15 +299,11 @@ class Simulation:
 
     def display_combined_plots(self):
         fig, axes = plt.subplots(1, 2, figsize=(20, 8))
-
         byzantine_counts = self._compute_byzantine_counts()
         node_colors, node_linewidths = self._compute_node_styles(byzantine_counts)
-
         self._plot_node_values(axes[0], node_colors, node_linewidths)      
         self._draw_graph(axes[1], byzantine_counts, node_colors, self.meets_convergence_req)
-
         return fig 
-
     
     def get_stats(self):
         stats = {}
@@ -304,6 +333,7 @@ class Simulation:
         node_values_over_time = {node: [] for node in self.G.nodes}
         global_averages = []
         agent_averages = []
+        pure_agent_averages = []
         for node in self.G.nodes:
             node_values_over_time[node].append(self.G.nodes[node]['agent'].value)
         global_averages.append(self.calculate_global_average())
@@ -319,8 +349,9 @@ class Simulation:
                 node_values_over_time[node].append(self.G.nodes[node]['agent'].value)
             global_averages.append(self.calculate_global_average())
             agent_averages.append(self.calculate_nonbyzantine_average())
+            pure_agent_averages.append(self.calculate_pure_agent_average())
         self.iterations = i
-        return node_values_over_time, global_averages, agent_averages
+        return node_values_over_time, global_averages, agent_averages, pure_agent_averages
 
     # Iteratively averages each agent's value with its neighbors.
     def update_weighted_values(self):
@@ -334,18 +365,16 @@ class Simulation:
         for node in self.G.nodes:
             self.G.nodes[node]['agent'].shared_to_value()
 
-
-
     def get_iterations(self):
         return self.iterations
 
     def run_sim(self):
         if (not isinstance(self,LoadedGraph)):
-            self.set_rand_node_values()
+            self._set_agent_values()
             self.set_byzantine_agents()
         self.init_global_average = self.calculate_global_average()
         print(f"Initial global average: {self.init_global_average:.4f}")
-        self.node_values_over_time, self.global_averages, self.agent_averages = self.track_values_and_averages()
+        self.node_values_over_time, self.global_averages, self.agent_averages,self.pure_averages = self.track_values_and_averages()
         self.end_global_average = self.calculate_global_average()
         print(f"Final global average: {self.end_global_average:.4f}")
         print("Consensus process complete!")
@@ -354,42 +383,40 @@ class Simulation:
             agent_data = self.G.nodes[agent]
             agent_data['agent'].get_neighbor_byzantine_count(self.G.neighbors(agent),self.G)
 
-
 class Cyclic(Simulation):
-    def __init__(self,order, amount_byzantine, averaging_function):
-        super().__init__(order, amount_byzantine, averaging_function)
+    def __init__(self,order, amount_byzantine, averaging_function,f):
+        super().__init__(order, amount_byzantine, averaging_function=averaging_function,f=f)
         self.G=nx.cycle_graph(order)
         self.special_var=None
 
 class Kregular(Simulation):
-    def __init__(self,order, amount_byzantine, averaging_function, degree):
-        super().__init__(order, amount_byzantine, averaging_function)
+    def __init__(self,order, amount_byzantine, averaging_function,f, degree):
+        super().__init__(order, amount_byzantine, averaging_function,f)
         self.degree=degree
         self.G=nx.random_regular_graph(degree,order)
         self.special_var = degree
 
 class Binomial(Simulation):
-    def __init__(self,order,amount_byzantine, averaging_function, probability):
-        super().__init__(order, amount_byzantine,averaging_function)
+    def __init__(self,order,amount_byzantine, averaging_function, f, probability):
+        super().__init__(order, amount_byzantine,averaging_function, f)
         self.probability = probability
         self.G=nx.erdos_renyi_graph(order,probability)
         self.special_var = probability
 
 class Small_World(Simulation):
-    def __init__(self, order, amount_byzantine, averaging_function, k, p):
-        super().__init__(order, amount_byzantine, averaging_function,)
+    def __init__(self, order, amount_byzantine,averaging_function,f, k, p):
+        super().__init__(order, amount_byzantine, averaging_function, f)
         self.k = k  # Each node is connected to `k` nearest neighbors
         self.p = p  # Probability of rewiring an edge
         self.G = nx.watts_strogatz_graph(self.order, self.k, self.p)
         self.special_var = f"k={k}, p={p}"
 
 class LoadedGraph(Simulation):
-    def __init__(self, filename, averaging_function):
-        super().__init__(order=0, amount_byzantine=0, averaging_function=averaging_function)
+    def __init__(self, filename, averaging_function,f):
+        super().__init__(order=0, amount_byzantine=0, averaging_function=averaging_function, f=f)
         self.G = nx.read_graphml(filename)
         self.order = self.G.number_of_nodes()
         self.special_var = f"Loaded from {filename}"
-
         for node in self.G.nodes:
             agent_type = str(self.G.nodes[node].get("agent_type", "Normal"))
             agent_value = float(self.G.nodes[node].get("agent_value", 0.0))
